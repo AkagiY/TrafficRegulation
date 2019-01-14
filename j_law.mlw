@@ -1,0 +1,312 @@
+(* Law of Road Traffic Act in Japan. http://www.japaneselawtranslation.go.jp/law/detail/?id=2962&vm=04&re=01 *)
+
+theory Map
+
+  type lane = La1 | La2 | La3 | Lb1 | Lb2 | Lb3 | Lc1 | Lc2 | Lc3 | Ld1 | Ld2 | Ld3 | Lx1 | Lx2 | NilLane
+  type crosswalk = Cw1 | Cw2 | NilCW
+  type signal = Sig1 | Sig2  | NilSignal
+  type color  = Red | Yellow | Green
+  type stopline = Sl1  | Sl2  | Sl3 | Sl4 | NilStop
+  
+  function has_priority (lane) : bool
+  function speed_regulation_of (lane) : real
+  
+  function stopline_of (lane) : stopline
+  function signal_of (stopline) : signal
+  function color_of  (signal) : color
+  
+  function crosswalk_of (lane) : crosswalk
+  function is_crossing (crosswalk) : bool
+  
+  axiom lane_setting :speed_regulation_of La1 = 40.0 /\ has_priority La1 = true  /\ stopline_of La1 = Sl1
+                   /\ speed_regulation_of La2 = 40.0 /\ has_priority La2 = true  /\ stopline_of La2 = NilStop
+                   /\ speed_regulation_of La3 = 40.0 /\ has_priority La3 = true  /\ stopline_of La3 = NilStop
+                   /\ speed_regulation_of Lb1 = 40.0 /\ has_priority Lb1 = true  /\ stopline_of Lb1 = Sl2
+                   /\ speed_regulation_of Lb2 = 40.0 /\ has_priority Lb2 = true  /\ stopline_of Lb2 = NilStop
+                   /\ speed_regulation_of Lb3 = 40.0 /\ has_priority Lb3 = true  /\ stopline_of Lb3 = NilStop
+                   /\ speed_regulation_of Lc1 = 30.0 /\ has_priority Lc1 = false /\ stopline_of Lc1 = Sl3
+                   /\ speed_regulation_of Lc2 = 30.0 /\ has_priority Lc2 = false /\ stopline_of Lc2 = NilStop
+                   /\ speed_regulation_of Lc3 = 30.0 /\ has_priority Lc3 = false /\ stopline_of Lc3 = NilStop
+                   /\ speed_regulation_of Ld1 = 30.0 /\ has_priority Ld1 = false /\ stopline_of Ld1 = Sl4
+                   /\ speed_regulation_of Ld2 = 30.0 /\ has_priority Ld2 = false /\ stopline_of Ld2 = NilStop
+                   /\ speed_regulation_of Ld3 = 30.0 /\ has_priority Ld3 = false /\ stopline_of Ld3 = NilStop
+                   /\ speed_regulation_of Lx1 = 10.0 /\ has_priority Lx1 = false /\ stopline_of Lx1 = NilStop
+                   /\ speed_regulation_of Lx2 = 10.0 /\ has_priority Lx2 = false /\ stopline_of Lx2 = NilStop
+
+  axiom signal:   signal_of Sl1 = Sig1
+               /\ signal_of Sl2 = Sig2
+               /\ signal_of Sl3 = NilSignal
+               /\ signal_of Sl4 = NilSignal
+
+  axiom crosswalk:   crosswalk_of Lc1 = Cw1
+                  /\ is_crossing Cw1 = true
+                  /\ crosswalk_of Ld1 = Cw2
+                  /\ is_crossing Cw2 = false
+  
+end
+
+theory VehicleState
+
+  use import int.Int
+  use import real.Real
+
+
+  type vehicle = MyCar | Car1 | Car2 | Car3
+  type speed_type = Stop | SlowDown | Cruise
+  type course = Straight | TurnLeft | TurnRight | ChangeLeft | ChangeRight
+  type relative_pos = Preceeding | Following | Parallel | Oncoming | Mearging | CrossingFromLeft | CrossingFromRight
+  
+  function speed_value_of (speed_type) : real
+  
+ 
+end
+
+
+theory Sensing
+
+  use import real.Real 
+  use import Map
+  use import VehicleState
+  
+  function distance_lon_to (vehicle) : real
+  function distance_lat_to (vehicle) : real
+
+  function lane_of (vehicle)  : lane
+  function speed_type_of (vehicle) : speed_type 
+  function current_speed_of (vehicle) : real
+  
+  function course_of (vehicle) : course
+  
+  function relative_pos_of (vehicle) : relative_pos
+  
+
+end
+
+
+(* Article 7 *)
+theory SignalRule
+ 
+  use import Map
+  use import VehicleState
+  use import Sensing
+ 
+  (* Rule *)
+  predicate signal_pass (v : vehicle) = 
+      if color_of (signal_of (stopline_of (lane_of v))) =  Green
+      then speed_type_of v = Cruise
+      else speed_type_of v = Stop
+
+  (* Scenario *)
+  axiom test_scenario: signal_pass MyCar 
+  
+  (* position *)
+  axiom my_pos: lane_of MyCar = La1
+  
+  (* signal state (please select one) 
+     Sig1 is a signal of La1 *)
+  axiom color_sig1: color_of Sig1 = Red (* or Yellow or Green *)
+
+  (* Testing *)
+  goal TestSignal1: speed_type_of MyCar = Cruise
+  goal TestSignal2: speed_type_of MyCar = Stop
+  
+end 
+
+
+
+(* Article 22 *)
+theory SpeedLimit
+  
+  use import real.Real
+  use import Map
+  use import VehicleState
+  use import Sensing 
+  
+
+  predicate set_limit (v : vehicle) = 
+      speed_value_of Cruise = speed_regulation_of (lane_of v)
+  
+  predicate check_limit (v : vehicle) = 
+      if speed_value_of Cruise > current_speed_of v
+      then speed_type_of v = Cruise
+      else speed_type_of v = SlowDown
+
+
+  (* Scenario *)
+  axiom test_scenario1: check_limit MyCar
+  axiom setup_lane: set_limit MyCar
+  axiom my_speed: current_speed_of MyCar = 35.0
+  
+  (* position (please select one)  *)
+  (*axiom my_pos: lane_of MyCar = La1*)
+  axiom my_pos: lane_of MyCar = Lc1 
+  
+  (* Testing *)
+  goal TestSpeedOK: speed_type_of MyCar = Cruise
+  goal TestSpeedNG: speed_type_of MyCar = SlowDown
+  
+end
+
+
+(* Article 26 *)
+theory Following
+  
+  use import real.Real
+  use import Map
+  use import VehicleState
+  use import Sensing 
+  
+  (* Safety distance is represented by Time To Collision (TTC) *)
+  function ttc_lim : real = 2.0
+  
+  (* Relative speed to the preceding vehicle *)
+  function ref_vel (v_prec : vehicle) (v_follow : vehicle) : real  =
+       (current_speed_of v_prec) - (current_speed_of v_follow) 
+
+  predicate follow (v_prec : vehicle) (v_follow : vehicle) =
+    if ( distance_lon_to v_prec ) +  ( ref_vel v_prec v_follow )*ttc_lim < 0.0
+    then speed_type_of v_follow = SlowDown /\ speed_value_of SlowDown = current_speed_of v_prec
+    else speed_type_of v_follow = Cruise 
+   
+   
+   
+   (* Scenario *)
+  axiom  FollowingTest: follow Car1 MyCar 
+  
+  axiom vel_Me: current_speed_of MyCar = 30.0
+  axiom Vel_Car1: current_speed_of Car1 = 15.0   (*40.0*)
+  
+  axiom Distance_Car1: distance_lon_to Car1 = 5.0 (*30.0*)
+
+  
+   (* Testing *)
+  goal TestSignal1: speed_type_of MyCar = Cruise
+  goal TestSignal2: speed_type_of MyCar = SlowDown
+
+end
+
+
+(* Article 28 *)
+theory Passing
+  
+  use import real.Real
+  use import Map
+  use import VehicleState
+  use import Sensing 
+  
+  function offset_lim : real = 2.0
+
+  predicate pass (v_ego : vehicle) (v_pass : vehicle) =
+    if (   (distance_lon_to v_pass) < 12.0 
+        /\ (distance_lat_to v_pass) < offset_lim )
+    then speed_type_of v_ego = Stop
+    else speed_type_of v_ego = SlowDown
+    
+    
+end
+
+(* Article 36, 37 *)
+
+theory Intersection
+
+  use import real.Real
+  use import Map
+  use import VehicleState
+  use import Sensing 
+  
+  predicate pass_int (v_ego : vehicle) (v_tar : vehicle) = 
+    if has_priority (lane_of v_ego) 
+    then if course_of v_ego = TurnRight
+         then if relative_pos_of v_tar = Oncoming
+              then speed_type_of v_ego = Stop
+              else speed_type_of v_ego = SlowDown
+         else speed_type_of v_ego = Cruise
+
+    else if has_priority (lane_of v_tar)
+         then speed_type_of v_ego = Stop
+         else if relative_pos_of v_tar = CrossingFromLeft \/
+                 (course_of v_ego = TurnRight /\ relative_pos_of v_tar = Oncoming)
+              then speed_type_of v_ego = Stop
+              else speed_type_of v_ego = SlowDown
+    
+  (*
+  axiom scenario1: course_of MyCar       = Straight /\lane_of MyCar = La1 
+                 /\relative_pos_of Car1  = Oncoming /\lane_of Car1  = Lb1 
+  *)
+  (*
+  axiom scenario2: course_of MyCar       = TurnRight /\lane_of MyCar = La1 
+                 /\relative_pos_of Car1  = Oncoming /\lane_of Car1  = Lb1
+  *)
+  (* 
+  axiom scenario3: course_of MyCar       = Straight          /\lane_of MyCar = Lc1 
+                 /\relative_pos_of Car1  = CrossingFromRight /\lane_of Car1  = Lb1
+  *)           
+                
+  axiom scenario4: course_of MyCar       = TurnRight /\lane_of MyCar = Lc1 
+                 /\relative_pos_of Car1  = Oncoming /\lane_of Car1  = Ld1
+                 
+  
+  axiom test_car1: pass_int MyCar Car1
+   
+   
+   (* Testing *)
+  goal TestInt_NoGo: speed_type_of MyCar = Stop 
+  goal TestInt_Wait: speed_type_of MyCar = SlowDown
+  goal TestInt_Go  : speed_type_of MyCar = Cruise
+  
+end
+
+(* Article 38 *)
+theory Crosswalk
+  
+  use import Map
+  use import VehicleState
+  use import Sensing
+ 
+  (* Rule *)
+  predicate pass_crosswalk (v : vehicle) = 
+      if signal_of (stopline_of (lane_of v)) =  NilSignal 
+       /\ is_crossing (crosswalk_of (lane_of v))
+      then speed_type_of v = Stop
+      else speed_type_of v = Cruise
+
+  (* Scenario *)
+  axiom pass_crosswalk: pass_crosswalk MyCar 
+  
+  (* position *)
+  axiom my_pos: lane_of MyCar = Ld1
+  (* axiom my_pos: lane_of MyCar = Lc1 *)
+
+  (* Testing *)
+  goal TestCrosswalk1: speed_type_of MyCar = Cruise
+  goal TestCrosswalk2: speed_type_of MyCar = Stop
+  
+end
+
+(* Article 43*)
+theory StopLine
+
+  use import Map
+  use import VehicleState
+  use import Sensing
+ 
+  (* Rule *)
+  predicate stopline (v : vehicle) = 
+      if stopline_of (lane_of v) = NilStop
+      then speed_type_of v = Cruise
+      else if signal_of (stopline_of (lane_of v)) =  NilSignal  
+           then speed_type_of v = Stop
+           else true
+
+  (* Scenario *)
+  axiom test_scenario: stopline MyCar 
+  
+  (* position *)
+  axiom my_pos: lane_of MyCar = Lc1
+  (* axiom my_pos: lane_of MyCar = La1 *)
+
+  (* Testing *)
+  goal TestSignal1: speed_type_of MyCar = Cruise
+  goal TestSignal2: speed_type_of MyCar = Stop
+
+end
